@@ -1,0 +1,6 @@
+[submodule "Attend_Excite/environment/src/clip"]
+	path = Attend_Excite/environment/src/clip
+	url = https://github.com/openai/CLIP.git
+[submodule "Attend_Excite/environment/src/taming-transformers"]
+	path = Attend_Excite/environment/src/taming-transformers
+	url = https://github.com/CompVis/taming-transformers.git
