@@ -1,0 +1,267 @@
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="AT"
+export PIPELINE="AT"
+export AUDIO_ENCODER="Clap"
+export DATA_DIR="../dataset/VGG_Sound_extracted/temp_data_grouped"
+export OUTPUT_DIR="output_time/vggn/"
+export SHOW_ATTN="No"
+export LEARNED_EMBEDS="output_train_claps/learned_embeds.bin"
+python audtime.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME" --show_attn="$SHOW_ATTN" --pipeline="$PIPELINE"  --audio_encoder="$AUDIO_ENCODER"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"
+
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="AT_Beats"
+export PIPELINE="AT"
+export AUDIO_ENCODER="Beats"
+export DATA_DIR="../dataset/VGG_Sound_extracted/temp_data_grouped"
+export OUTPUT_DIR="output_time/vggn/"
+export SHOW_ATTN="No"
+export LEARNED_EMBEDS="output_train/learned_embeds.bin"
+python audtime.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME" --show_attn="$SHOW_ATTN" --pipeline="$PIPELINE"  --audio_encoder="$AUDIO_ENCODER"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"
+
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="VGG_AT_temp2"
+export DATA_DIR="../dataset/VGG_Sound_extracted/temp_data"
+export OUTPUT_DIR="output_vgg/"
+export GENERATED_IMGS_DIR="output_vgg/imgs/VGG_AT_temp2"
+python eval_metrics.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"  --generated_imgs_dir="$GENERATED_IMGS_DIR"
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="VGG2_AT_clap2"
+export AUDIO_ENCODER="Clap"
+export DATA_DIR="../dataset/VGG_Sound_extracted/test_data_paired"
+export OUTPUT_DIR="output_vgg2/"
+export LEARNED_EMBEDS="output_train_clap/learned_embeds.bin"
+python AudioToken/inference2.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --audio_encoder="$AUDIO_ENCODER"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"
+
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="IS3_AT_claps"
+export AUDIO_ENCODER="Clap"
+export DATA_DIR="../dataset/IS3"
+export OUTPUT_DIR="output_is3/"
+export LEARNED_EMBEDS="output_train_claps/learned_embeds.bin"
+python AudioToken/inference2.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --audio_encoder="$AUDIO_ENCODER"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"
+
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="VGGi_AT"
+export AUDIO_ENCODER="Beats"
+export DATA_DIR="../dataset/VGG_Sound_extracted/test_data_group"
+export OUTPUT_DIR="output_vggi/"
+export LEARNED_EMBEDS="output_train/learned_embeds.bin"
+python AudioToken/inferencei.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --audio_encoder="$AUDIO_ENCODER"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"
+
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="VGGn_AT_text"
+export AUDIO_ENCODER="Beats"
+export DATA_DIR="../dataset/VGG_Sound_extracted/test_data_group"
+export USE_LABEL="Yes"
+export OUTPUT_DIR="output_vggn/"
+export LEARNED_EMBEDS="AudioToken/output/embedder_learned_embeds.bin"
+python AudioToken/inferencen.py   --pretrained_model_name_or_path="$MODEL_NAME"  --use_label="$USE_LABEL"  --run_name="$RUN_NAME"  --audio_encoder="$AUDIO_ENCODER"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"
+
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="VGG2_AT_clap"
+export PIPELINE="ane"
+export AUDIO_ENCODER="Beats"
+export DATA_DIR="../dataset/IS3"
+export OUTPUT_DIR="output_is3/"
+export LEARNED_EMBEDS="output_train/learned_embeds.bin"
+python audatt2.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --pipeline="$PIPELINE"  --audio_encoder="$AUDIO_ENCODER"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"
+
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="VGGi_Ane_claps"
+export PIPELINE="ane"
+export AUDIO_ENCODER="Clap"
+export USE_LABEL="No"
+export DATA_DIR="../dataset/VGG_Sound_extracted/test_data_group"
+export OUTPUT_DIR="output_vggi/"
+export LEARNED_EMBEDS="output_train_claps/learned_embeds.bin"
+python audatti.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --use_label="$USE_LABEL"  --pipeline="$PIPELINE"  --audio_encoder="$AUDIO_ENCODER"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"
+
+
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="VGGn_mixed"
+export PIPELINE="mixed"
+export AUDIO_ENCODER="Clap"
+export DATA_DIR="../dataset/VGG_Sound_extracted/test_data_group"
+export OUTPUT_DIR="output_vggn/"
+export LEARNED_EMBEDS="output_train_claps/learned_embeds.bin"
+python audattn.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --use_label="$USE_LABEL"  --pipeline="$PIPELINE"  --audio_encoder="$AUDIO_ENCODER"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"
+
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="LLP_AT"
+export PIPELINE="mixed"
+export AUDIO_ENCODER="Clap"
+export USE_LABEL="No"
+export DATA_DIR="../dataset/LLP/all"
+export OUTPUT_DIR="output_macs/"
+export LEARNED_EMBEDS="output_train_claps/learned_embeds.bin"
+python audmix.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --use_label="$USE_LABEL"  --pipeline="$PIPELINE"  --audio_encoder="$AUDIO_ENCODER"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"
+
+
+
+export LEARNED_EMBEDS="output_train/learned_embeds.bin"
+
+
+export LEARNED_EMBEDS="output_train/learned_embeds.bin"
+export LEARNED_EMBEDS="output_train/weights/AudioToken_learned_embeds-1000.bin"
+
+
+
+AT -> AudioToken
+SD -> Stable Diffusion
+
+Astar -> AStar loss with text
+Audio_star -> AStar loss with audio
+
+Audio_mixed -> Astar and Attend and Excite loss with audio
+Amix -> Astar and Attend and Excite loss with text
+
+AAE -> Attend and Excite with text
+AnE -> Attend and Excite with audio
+
+
+
+(Beats) Feats shape:  torch.Size([8, 992, 2304])
+(Clap) Feats shape:  torch.Size([8, 512])
+
+
+Feats shape:  torch.Size([8, 992, 2304])
+Token shape:  torch.Size([8, 768])
+Token embeds shape:  torch.Size([49409, 768])
+
+
+Official....
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="VGG_AT"
+export DATA_DIR="../../dataset/VGG_Sound_extracted/test_data"
+export OUTPUT_DIR="output/"
+export LEARNED_EMBEDS="AudioToken/output/embedder_learned_embeds.bin"
+python AudioToken/inference.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"
+
+
+
+Train...
+
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export DATA_DIR="../dataset/VGG_Sound_extracted/train_data"
+export OUTPUT_DIR="output_train/"
+
+accelerate launch AudioToken/train.py \
+  --pretrained_model_name_or_path=$
+  MODEL_NAME \
+  --data_dir=$DATA_DIR \
+  --output_dir=$OUTPUT_DIR \
+  --resolution=512 \
+  --train_batch_size=4 \
+  --gradient_accumulation_steps=4 \
+  --max_train_steps=30000 \
+  --learning_rate=1.0e-05
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export DATA_DIR="../dataset/VGG_Sound_extracted/test_data"
+export OUTPUT_DIR="output_train_claps/"
+
+accelerate launch AudioToken/train_clap.py \
+  --pretrained_model_name_or_path=$MODEL_NAME \
+  --data_dir=$DATA_DIR \
+  --output_dir=$OUTPUT_DIR \
+  --resolution=512 \
+  --train_batch_size=4 \
+  --gradient_accumulation_steps=4 \
+  --max_train_steps=50000 \
+  --learning_rate=1.0e-05
+
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export DATA_DIR="../dataset/VGG_Sound_extracted/"
+export OUTPUT_DIR="output_train/"
+
+accelerate launch AudioToken/train_org.py \
+  --pretrained_model_name_or_path=$MODEL_NAME \
+  --data_dir=$DATA_DIR \
+  --output_dir=$OUTPUT_DIR \
+  --resolution=512 \
+  --train_batch_size=4 \
+  --gradient_accumulation_steps=4 \
+  --max_train_steps=30 \
+  --learning_rate=1.0e-05 \
+
+
+
+python create_gallery.py \
+    --gen_dir  output_vgg3/imgs/VGG3_mixed_claps \
+    --out_html ./gallery.html \
+    --top_k    50          # optional: only keep top 50
+    --num_captions 3       # BLIP beams per image
+
+
+
+python remove_png.py "output_vgg2/imgs/VGG2_AT_claps/"
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="VGG_Cluster"
+export PIPELINE="AT"
+export AUDIO_ENCODER="Beats"
+export DATA_DIR="../dataset/VGG_Sound_extracted/temp_data"
+export OUTPUT_DIR="output_vgg/"
+export LEARNED_EMBEDS="output_train/learned_embeds.bin"
+python plot_clusters.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --use_label="$USE_LABEL"  --pipeline="$PIPELINE"  --audio_encoder="$AUDIO_ENCODER"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="VGG_Cluster"
+export PIPELINE="AT"
+export DATA_DIR="../dataset/VGG_Sound_extracted/test_data"
+export OUTPUT_DIR="output_vgg/"
+export LEARNED_EMBEDS="output_train/learned_embeds.bin"
+export LEARNED_EMBEDS_CLAP="output_train_claps/learned_embeds.bin"
+python plot_clusters.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --pipeline="$PIPELINE"  --audio_encoder="$AUDIO_ENCODER"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"  --learned_embeds_clap="$LEARNED_EMBEDS_CLAP"
+
+
+
+python plot_clusters.py \
+    --learned_embeds      $LEARNED_EMBEDS      \
+    --learned_embeds_clap $LEARNED_EMBEDS_CLAP \
+    --data_dir            $DATA_DIR            \
+    --output_dir          $OUTPUT_DIR
+
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME="VGG_Cluster_claps"
+export PIPELINE="AT"
+export AUDIO_ENCODER="Clap"
+export DATA_DIR="../dataset/VGG_Sound_extracted/temp_data"
+export OUTPUT_DIR="output_vgg/"
+export LEARNED_EMBEDS="output_train_claps/learned_embeds.bin"
+python plot_clusters.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --use_label="$USE_LABEL"  --pipeline="$PIPELINE"  --audio_encoder="$AUDIO_ENCODER"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"   --learned_embeds="$LEARNED_EMBEDS"
+
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME=""
+export DATA_DIR="../dataset/VGG_Sound_extracted/test_data"
+export OUTPUT_DIR="output_s2s/"
+export GENERATED_IMGS_DIR="output_s2s/imgs/"
+python eval_metrics.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"  --generated_imgs_dir="$GENERATED_IMGS_DIR"
+
+export MODEL_NAME="CompVis/stable-diffusion-v1-4"
+export RUN_NAME=""
+export DATA_DIR="../dataset/VGG_Sound_extracted/test_data"
+export OUTPUT_DIR="output_sd/"
+export GENERATED_IMGS_DIR="output_sd/imgs/"
+python eval_metrics.py   --pretrained_model_name_or_path="$MODEL_NAME"  --run_name="$RUN_NAME"  --data_dir="$DATA_DIR"  --output_dir="$OUTPUT_DIR"  --generated_imgs_dir="$GENERATED_IMGS_DIR"
+
+
+
+Remaining runs...
+3. VGG_AT_org for various datasets
+4. MACS AT (normal without separated)
