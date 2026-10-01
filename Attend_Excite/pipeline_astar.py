@@ -1,0 +1,452 @@
+import inspect
+from typing import Any, Callable, Dict, List, Optional, Union, Tuple
+
+import numpy as np
+import torch
+from torch.nn import functional as F
+
+from packaging import version
+from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
+
+from diffusers.configuration_utils import FrozenDict
+from diffusers.models import AutoencoderKL, UNet2DConditionModel
+from diffusers.schedulers import KarrasDiffusionSchedulers
+from diffusers.utils import deprecate, is_accelerate_available, logging, replace_example_docstring
+from diffusers.utils.torch_utils import randn_tensor
+from diffusers.pipelines.pipeline_utils import DiffusionPipeline
+from diffusers.pipelines.stable_diffusion import StableDiffusionPipelineOutput
+from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
+
+from diffusers.pipelines.stable_diffusion import StableDiffusionPipeline
+
+# from utils.gaussian_smoothing import GaussianSmoothing
+# from utils.ptp_utils import AttentionStore, aggregate_attention
+
+from Attend_Excite.utils.gaussian_smoothing import GaussianSmoothing
+from Attend_Excite.utils.ptp_utils import AttentionStore, aggregate_attention
+from Attend_Excite.utils.attn_map import get_attention_heatmap
+
+import math
+import cv2
+import numpy as np
+from PIL import Image
+import os
+
+logger = logging.get_logger(__name__)
+
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+
+class GaussianSmoothing(nn.Module):
+    def __init__(self, channels=1, kernel_size=3, sigma=0.5):
+        super(GaussianSmoothing, self).__init__()
+        # Create a 2D Gaussian kernel
+        x_cord = torch.arange(kernel_size).float()
+        x_grid = x_cord.repeat(kernel_size).view(kernel_size, kernel_size)
+        y_grid = x_grid.t()
+        mean = (kernel_size - 1) / 2.
+        variance = sigma**2.
+
+        gaussian_kernel = torch.exp(-((x_grid - mean)**2 + (y_grid - mean)**2) / (2 * variance))
+        gaussian_kernel = gaussian_kernel / torch.sum(gaussian_kernel)
+        gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size).repeat(channels, 1, 1, 1)
+
+        self.register_buffer('weight', gaussian_kernel)
+        self.groups = channels
+        self.padding = kernel_size // 2
+
+    def forward(self, input):
+        # Input should be [Batch, Channels, H, W]
+        return F.conv2d(input, self.weight, groups=self.groups, padding=self.padding)
+
+
+class AttendAndExcitePipeline(StableDiffusionPipeline):
+    _optional_components = ["safety_checker", "feature_extractor"]
+    
+    def _encode_prompt(
+        self,
+        prompt,
+        device,
+        num_images_per_prompt,
+        do_classifier_free_guidance,
+        negative_prompt=None,
+        prompt_embeds: Optional[torch.FloatTensor] = None,
+        negative_prompt_embeds: Optional[torch.FloatTensor] = None,
+    ):
+        if prompt is not None and isinstance(prompt, str):
+            batch_size = 1
+        elif prompt is not None and isinstance(prompt, list):
+            batch_size = len(prompt)
+        else:
+            batch_size = prompt_embeds.shape[0]
+
+        if prompt_embeds is None:
+            text_inputs = self.tokenizer(
+                prompt,
+                padding="max_length",
+                max_length=self.tokenizer.model_max_length,
+                truncation=True,
+                return_tensors="pt",
+            )
+            text_input_ids = text_inputs.input_ids
+            untruncated_ids = self.tokenizer(prompt, padding="longest", return_tensors="pt").input_ids
+
+            if untruncated_ids.shape[-1] >= text_input_ids.shape[-1] and not torch.equal(
+                text_input_ids, untruncated_ids
+            ):
+                removed_text = self.tokenizer.batch_decode(
+                    untruncated_ids[:, self.tokenizer.model_max_length - 1 : -1]
+                )
+                logger.warning(
+                    "The following part of your input was truncated because CLIP can only handle sequences up to"
+                    f" {self.tokenizer.model_max_length} tokens: {removed_text}"
+                )
+
+            if hasattr(self.text_encoder.config, "use_attention_mask") and self.text_encoder.config.use_attention_mask:
+                attention_mask = text_inputs.attention_mask.to(device)
+            else:
+                attention_mask = None
+
+            prompt_embeds = self.text_encoder(
+                text_input_ids.to(device),
+                attention_mask=attention_mask,
+            )
+            prompt_embeds = prompt_embeds[0]
+
+        prompt_embeds = prompt_embeds.to(dtype=self.text_encoder.dtype, device=device)
+
+        bs_embed, seq_len, _ = prompt_embeds.shape
+        # duplicate text embeddings for each generation per prompt, using mps friendly method
+        prompt_embeds = prompt_embeds.repeat(1, num_images_per_prompt, 1)
+        prompt_embeds = prompt_embeds.view(bs_embed * num_images_per_prompt, seq_len, -1)
+
+        # get unconditional embeddings for classifier free guidance
+        if do_classifier_free_guidance and negative_prompt_embeds is None:
+            uncond_tokens: List[str]
+            if negative_prompt is None:
+                uncond_tokens = [""] * batch_size
+            elif type(prompt) is not type(negative_prompt):
+                raise TypeError(
+                    f"`negative_prompt` should be the same type to `prompt`, but got {type(negative_prompt)} !="
+                    f" {type(prompt)}."
+                )
+            elif isinstance(negative_prompt, str):
+                uncond_tokens = [negative_prompt]
+            elif batch_size != len(negative_prompt):
+                raise ValueError(
+                    f"`negative_prompt`: {negative_prompt} has batch size {len(negative_prompt)}, but `prompt`:"
+                    f" {prompt} has batch size {batch_size}. Please make sure that passed `negative_prompt` matches"
+                    " the batch size of `prompt`."
+                )
+            else:
+                uncond_tokens = negative_prompt
+
+            max_length = prompt_embeds.shape[1]
+            uncond_input = self.tokenizer(
+                uncond_tokens,
+                padding="max_length",
+                max_length=max_length,
+                truncation=True,
+                return_tensors="pt",
+            )
+
+            if hasattr(self.text_encoder.config, "use_attention_mask") and self.text_encoder.config.use_attention_mask:
+                attention_mask = uncond_input.attention_mask.to(device)
+            else:
+                attention_mask = None
+
+            negative_prompt_embeds = self.text_encoder(
+                uncond_input.input_ids.to(device),
+                attention_mask=attention_mask,
+            )
+            negative_prompt_embeds = negative_prompt_embeds[0]
+
+        if do_classifier_free_guidance:
+            # duplicate unconditional embeddings for each generation per prompt, using mps friendly method
+            seq_len = negative_prompt_embeds.shape[1]
+
+            negative_prompt_embeds = negative_prompt_embeds.to(dtype=self.text_encoder.dtype, device=device)
+
+            negative_prompt_embeds = negative_prompt_embeds.repeat(1, num_images_per_prompt, 1)
+            negative_prompt_embeds = negative_prompt_embeds.view(batch_size * num_images_per_prompt, seq_len, -1)
+
+            # For classifier free guidance, we need to do two forward passes.
+            # Here we concatenate the unconditional and text embeddings into a single batch
+            # to avoid doing two forward passes
+            prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds])
+
+        return text_inputs, prompt_embeds
+
+
+    @staticmethod
+    def _update_latent(latents: torch.Tensor, loss: torch.Tensor, step_size: float):
+        grad = torch.autograd.grad(loss, [latents], retain_graph=True)[0]
+        return latents - step_size * grad
+
+    @staticmethod
+    def _compute_loss_astar(
+        cross_attn_map: torch.Tensor,
+        target_token: List[int],
+        step_idx: int,
+        prev_bin_mask_lst: List[torch.Tensor] = None,
+    ):
+        # Ensure we are working with a list, not None
+        if prev_bin_mask_lst is None:
+            prev_bin_mask_lst = []
+
+        # 1. Prepare Attention Map
+        if cross_attn_map.dim() == 3:
+            H, W, T = cross_attn_map.shape
+            attn = cross_attn_map.reshape(H * W, T)
+        else:
+            attn = cross_attn_map 
+
+        # 2. Sharpen & Softmax (Differentiable)
+        # Removing CLS and applying softmax to ensure values sum to 1 across tokens
+        attn = torch.softmax(attn[:, 1:] * 2.0, dim=-1) 
+
+        token_maps = []
+        curr_soft_masks = []
+        
+        # Temperature for the soft threshold. Higher = closer to binary (0/1).
+        temp = 20.0
+
+        for tok in target_token:
+            amap = attn[:, tok - 1] # [HW]
+            token_maps.append(amap)
+
+            # DIFFERENTIABLE MASK: Instead of (amap >= thr), use Sigmoid
+            thr = amap.mean()
+            soft_mask = torch.sigmoid((amap - thr) * temp)
+            curr_soft_masks.append(soft_mask)
+
+        token_maps = torch.stack(token_maps, dim=0) # [K, HW]
+
+        # 3. Segregation Loss (Differentiable)
+        loss_seg = torch.tensor(0.0).to(attn.device)
+        K = token_maps.shape[0]
+        if K > 1:
+            for i in range(K):
+                for j in range(i + 1, K):
+                    # Use soft intersection
+                    inter = torch.min(token_maps[i], token_maps[j]).sum()
+                    union = (token_maps[i] + token_maps[j]).sum()
+                    loss_seg += inter / (union + 1e-6)
+
+        # 4. Retention Loss (Differentiable)
+        loss_ret = torch.tensor(0.0).to(attn.device)
+        if step_idx > 0 and len(prev_bin_mask_lst) == K:
+            prev_masks = torch.stack(prev_bin_mask_lst, dim=0) 
+            curr_masks = torch.stack(curr_soft_masks, dim=0)
+
+            # Minimize (1 - Soft IoU)
+            inter = torch.min(curr_masks, prev_masks).sum(dim=1)
+            union = torch.max(curr_masks, prev_masks).sum(dim=1)
+            loss_ret = (1.0 - inter / (union + 1e-6)).mean()
+
+        total_loss = loss_seg + loss_ret
+        
+        # Detach masks for the NEXT step to prevent the graph from growing indefinitely
+        new_mask_state = [m.detach() for m in curr_soft_masks]
+        
+        return total_loss, new_mask_state
+        
+
+    @torch.no_grad()
+    def __call__(
+            self,
+            prompt: Union[str, List[str]],
+            attention_store: AttentionStore,
+            indices_to_alter: List[int],
+            attention_res: int = 16,
+            height: Optional[int] = None,
+            width: Optional[int] = None,
+            num_inference_steps: int = 50,
+            guidance_scale: float = 7.5,
+            negative_prompt: Optional[Union[str, List[str]]] = None,
+            num_images_per_prompt: Optional[int] = 1,
+            eta: float = 0.0,
+            generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
+            latents: Optional[torch.FloatTensor] = None,
+            prompt_embeds: Optional[torch.FloatTensor] = None,
+            negative_prompt_embeds: Optional[torch.FloatTensor] = None,
+            output_type: Optional[str] = "pil",
+            return_dict: bool = True,
+            callback: Optional[Callable[[int, int, torch.FloatTensor], None]] = None,
+            callback_steps: Optional[int] = 1,
+            cross_attention_kwargs: Optional[Dict[str, Any]] = None,
+            max_iter_to_alter: Optional[int] = 25,
+            run_standard_sd: bool = False,
+            thresholds: Optional[dict] = {0: 0.05, 10: 0.5, 20: 0.8},
+            scale_factor: int = 20,
+            scale_range: Tuple[float, float] = (1., 0.5),
+            smooth_attentions: bool = True,
+            sigma: float = 0.5,
+            kernel_size: int = 3,
+            sd_2_1: bool = False,
+            show_attn: Optional[bool] = False,
+            attn_save_path: Optional[str] = None
+    ):
+        # 0. Default height and width to unet
+        height = height or self.unet.config.sample_size * self.vae_scale_factor
+        width = width or self.unet.config.sample_size * self.vae_scale_factor
+
+        # 1. Check inputs. Raise error if not correct
+        self.check_inputs(
+            prompt, height, width, callback_steps, negative_prompt, prompt_embeds, negative_prompt_embeds
+        )
+
+        # 2. Define call parameters
+        self.prompt = prompt
+        if prompt is not None and isinstance(prompt, str):
+            batch_size = 1
+        elif prompt is not None and isinstance(prompt, list):
+            batch_size = len(prompt)
+        else:
+            batch_size = prompt_embeds.shape[0]
+
+        device = self._execution_device
+        # here `guidance_scale` is defined analog to the guidance weight `w` of equation (2)
+        # of the Imagen paper: https://arxiv.org/pdf/2205.11487.pdf . `guidance_scale = 1`
+        # corresponds to doing no classifier free guidance.
+        do_classifier_free_guidance = guidance_scale > 1.0
+
+        # 3. Encode input prompt
+        text_inputs, prompt_embeds = self._encode_prompt(
+            prompt,
+            device,
+            num_images_per_prompt,
+            do_classifier_free_guidance,
+            negative_prompt,
+            prompt_embeds=prompt_embeds,
+            negative_prompt_embeds=negative_prompt_embeds,
+        )
+
+        # 4. Prepare timesteps
+        self.scheduler.set_timesteps(num_inference_steps, device=device)
+        timesteps = self.scheduler.timesteps
+
+        # 5. Prepare latent variables
+        num_channels_latents = self.unet.in_channels
+        latents = self.prepare_latents(
+            batch_size * num_images_per_prompt,
+            num_channels_latents,
+            height,
+            width,
+            prompt_embeds.dtype,
+            device,
+            generator,
+            latents,
+        )
+
+        # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
+        extra_step_kwargs = self.prepare_extra_step_kwargs(generator, eta)
+
+        scale_range = np.linspace(scale_range[0], scale_range[1], len(self.scheduler.timesteps))
+
+        if max_iter_to_alter is None:
+            max_iter_to_alter = len(self.scheduler.timesteps) + 1
+
+        # 7. Denoising loop
+        num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
+        prev_bin_mask_lst = []
+        with self.progress_bar(total=num_inference_steps) as progress_bar:
+            for i, t in enumerate(timesteps):
+
+                with torch.enable_grad():
+                    latents = latents.clone().detach().requires_grad_(True)
+
+                    _ = self.unet(
+                        latents,
+                        t,
+                        encoder_hidden_states=prompt_embeds[1].unsqueeze(0),
+                        cross_attention_kwargs=cross_attention_kwargs
+                    ).sample
+                    self.unet.zero_grad()
+
+                    attention_maps = aggregate_attention(
+                        attention_store=attention_store,
+                        res=attention_res,
+                        from_where=("up", "down", "mid"),
+                        is_cross=True,
+                        select=0,
+                    )
+
+                    # Inside your denoising loop:
+                    if not run_standard_sd:
+                        loss, prev_bin_mask_lst = self._compute_loss_astar(
+                            cross_attn_map=attention_maps,
+                            target_token=indices_to_alter,
+                            step_idx=i,
+                            prev_bin_mask_lst=prev_bin_mask_lst,
+                        )
+
+                        # Only attempt update if loss is a tensor with a gradient history
+                        if i < max_iter_to_alter and isinstance(loss, torch.Tensor) and loss.grad_fn is not None:
+                            if loss > 0:
+                                latents = self._update_latent(
+                                    latents,
+                                    loss,
+                                    step_size=scale_factor * np.sqrt(scale_range[i]),
+                                )
+
+                        
+                        if show_attn and i%10 == 0:
+                            with torch.no_grad():
+                                if not os.path.exists(attn_save_path):
+                                    os.makedirs(attn_save_path)
+                                img = self.decode_latents(latents)[0]
+                                img = (img * 255).astype(np.uint8)
+
+                                token_index = indices_to_alter
+
+                                heatmap = get_attention_heatmap(
+                                    attention_store,
+                                    token_index,
+                                    img
+                                )
+
+                                Image.fromarray(heatmap).save(f'{attn_save_path}/frame_{i}.jpg')   
+                            
+                latent_model_input = torch.cat([latents] * 2) if do_classifier_free_guidance else latents
+                latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+
+                noise_pred = self.unet(
+                    latent_model_input,
+                    t,
+                    encoder_hidden_states=prompt_embeds,
+                    cross_attention_kwargs=cross_attention_kwargs,
+                ).sample
+
+                if do_classifier_free_guidance:
+                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                    noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+
+                latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
+
+                progress_bar.update()
+
+
+                # call the callback, if provided
+                if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
+                    progress_bar.update()
+                    if callback is not None and i % callback_steps == 0:
+                        callback(i, t, latents)
+
+        # 8. Post-processing
+        image = self.decode_latents(latents)
+
+        # 9. Run safety checker
+        image, has_nsfw_concept = self.run_safety_checker(image, device, prompt_embeds.dtype)
+
+        # 10. Convert to PIL
+        if output_type == "pil":
+            image = self.numpy_to_pil(image)
+
+        if not return_dict:
+            return (image, has_nsfw_concept)
+
+        return StableDiffusionPipelineOutput(images=image, nsfw_content_detected=has_nsfw_concept)
