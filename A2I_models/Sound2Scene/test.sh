@@ -1,0 +1,3 @@
+python test.py --checkpoint_vggish ./checkpoints/sound2scene.pth --wav_path ./samples/inference --out_path ./samples/output
+python test1.py --checkpoint_vggish ./checkpoints/sound2scene.pth --wav_path ./samples/inference --out_path ./samples/output
+python test1.py --checkpoint_vggish ./checkpoints/sound2scene.pth --wav_path /home/singh_prajwal/dataset/VGG_Sound_extracted/temp_data_wav --out_path ./samples/output

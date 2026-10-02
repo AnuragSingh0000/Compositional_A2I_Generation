@@ -1,1 +1,11 @@
 *.tmp
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Pretrained weights and generated outputs: kept locally, not stored in git
+A2I_models/MACS/weights/
+A2I_models/MACS/laion_clap/*.pt
+A2I_models/SonicDiffusion/ckpts/
+A2I_models/Sound2Scene/checkpoints/
+A2I_models/Official/output/
