@@ -4,3 +4,15 @@
 [submodule "Attend_Excite/environment/src/taming-transformers"]
 	path = Attend_Excite/environment/src/taming-transformers
 	url = https://github.com/CompVis/taming-transformers.git
+[submodule "A2I_models/Official/Attend-and-Excite/environment/src/clip"]
+	path = A2I_models/Official/Attend-and-Excite/environment/src/clip
+	url = https://github.com/openai/CLIP.git
+[submodule "A2I_models/Official/Attend-and-Excite/environment/src/taming-transformers"]
+	path = A2I_models/Official/Attend-and-Excite/environment/src/taming-transformers
+	url = https://github.com/CompVis/taming-transformers.git
+[submodule "A2I_models/Official/stable-diffusion/src/clip"]
+	path = A2I_models/Official/stable-diffusion/src/clip
+	url = https://github.com/openai/CLIP.git
+[submodule "A2I_models/Official/stable-diffusion/src/taming-transformers"]
+	path = A2I_models/Official/stable-diffusion/src/taming-transformers
+	url = https://github.com/CompVis/taming-transformers.git
